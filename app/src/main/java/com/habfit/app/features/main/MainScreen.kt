@@ -28,7 +28,9 @@ import com.habfit.app.ui.theme.PrimaryText
 import com.habfit.app.ui.theme.PurpleAI
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    onLogout: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -71,7 +73,9 @@ fun MainScreen() {
             composable(Screen.AI.route) { AIScreen() }
             composable(Screen.Fitness.route) { FitnessScreen() }
             composable(Screen.Community.route) { CommunityScreen() }
-            composable(Screen.Profile.route) { ProfileScreen() }
+            composable(Screen.Profile.route) { 
+                ProfileScreen(onLogout = onLogout) 
+            }
         }
     }
 }

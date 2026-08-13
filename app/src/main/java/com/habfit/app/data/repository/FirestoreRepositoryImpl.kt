@@ -56,6 +56,12 @@ class FirestoreRepositoryImpl @Inject constructor(
             .set(workoutMap).await()
     }
 
+    override suspend fun deleteWorkout(userId: String, workoutId: Int) {
+        firestore.collection("users").document(userId)
+            .collection("workouts").document(workoutId.toString())
+            .delete().await()
+    }
+
     override fun getCommunityPosts(): Flow<List<ContentPost>> = callbackFlow {
         val subscription = firestore.collection("posts")
             .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -70,7 +76,12 @@ class FirestoreRepositoryImpl @Inject constructor(
     }
 
     override suspend fun createCommunityPost(post: ContentPost) {
-        firestore.collection("posts").add(post).await()
+        val postId = if (post.id != 0) post.id.toString() else null
+        if (postId != null) {
+            firestore.collection("posts").document(postId).set(post).await()
+        } else {
+            firestore.collection("posts").add(post).await()
+        }
     }
 
     override suspend fun toggleLikePost(postId: Int, userId: String, isLiked: Boolean) {

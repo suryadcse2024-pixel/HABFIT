@@ -71,7 +71,13 @@ fun HabfitNavGraph(
             )
         }
         composable(Screen.Main.route) {
-            MainScreen()
+            MainScreen(
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
+                    }
+                }
+            )
         }
     }
 }

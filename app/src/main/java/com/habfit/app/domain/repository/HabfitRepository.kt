@@ -24,6 +24,7 @@ interface HabfitRepository {
         starterHabits: List<String>
     )
     suspend fun updateNotifications(enabled: Boolean)
+    suspend fun logout()
 
     // Habits
     fun getAllHabits(): Flow<List<Habit>>

@@ -10,6 +10,7 @@ interface FirestoreRepository {
     suspend fun syncHabit(userId: String, habit: Habit)
     suspend fun deleteHabit(userId: String, habitId: Int)
     suspend fun syncWorkout(userId: String, workout: Workout)
+    suspend fun deleteWorkout(userId: String, workoutId: Int)
     
     // Community Data
     fun getCommunityPosts(): Flow<List<ContentPost>>

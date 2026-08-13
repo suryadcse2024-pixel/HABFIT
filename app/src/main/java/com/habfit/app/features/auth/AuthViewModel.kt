@@ -1,7 +1,9 @@
 package com.habfit.app.features.auth
 
+import android.os.Bundle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.habfit.app.domain.model.User
 import com.habfit.app.domain.repository.AuthRepository
 import com.habfit.app.domain.repository.HabfitRepository
@@ -15,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val habfitRepository: HabfitRepository
+    private val habfitRepository: HabfitRepository,
+    private val analytics: FirebaseAnalytics
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
@@ -35,6 +38,9 @@ class AuthViewModel @Inject constructor(
             
             authRepository.login(email, password).fold(
                 onSuccess = {
+                    analytics.logEvent(FirebaseAnalytics.Event.LOGIN, Bundle().apply {
+                        putString(FirebaseAnalytics.Param.METHOD, "email")
+                    })
                     _isLoading.value = false
                     onSuccess()
                 },
@@ -61,6 +67,9 @@ class AuthViewModel @Inject constructor(
 
             authRepository.signup(name, email, password).fold(
                 onSuccess = {
+                    analytics.logEvent(FirebaseAnalytics.Event.SIGN_UP, Bundle().apply {
+                        putString(FirebaseAnalytics.Param.METHOD, "email")
+                    })
                     // Initialize local preferences with cloud data
                     habfitRepository.saveUserPreferences(
                         name = name,
@@ -88,6 +97,9 @@ class AuthViewModel @Inject constructor(
 
             authRepository.signInWithGoogle(idToken).fold(
                 onSuccess = {
+                    analytics.logEvent(FirebaseAnalytics.Event.LOGIN, Bundle().apply {
+                        putString(FirebaseAnalytics.Param.METHOD, "google")
+                    })
                     _isLoading.value = false
                     onSuccess()
                 },

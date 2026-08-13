@@ -1,5 +1,7 @@
 package com.habfit.app.data.repository
 
+import android.os.Bundle
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.habfit.app.data.local.AssistantDao
 import com.habfit.app.data.local.BadgeDao
 import com.habfit.app.data.local.CommunityDao
@@ -39,7 +41,8 @@ class HabfitRepositoryImpl @Inject constructor(
     private val badgeDao: BadgeDao,
     private val communityDao: CommunityDao,
     private val authRepository: AuthRepository,
-    private val firestoreRepository: FirestoreRepository
+    private val firestoreRepository: FirestoreRepository,
+    private val analytics: FirebaseAnalytics
 ) : HabfitRepository {
 
     private fun getCurrentDate(): String {
@@ -97,6 +100,12 @@ class HabfitRepositoryImpl @Inject constructor(
         userDao.updateUser(user.copy(isNotificationsEnabled = enabled))
     }
 
+    override suspend fun logout() {
+        authRepository.logout()
+        // Log Analytics
+        analytics.logEvent("logout", null)
+    }
+
     override fun getAllHabits(): Flow<List<Habit>> = habitDao.getAllHabits()
 
     override suspend fun addHabit(
@@ -127,17 +136,29 @@ class HabfitRepositoryImpl @Inject constructor(
         val newStreak = if (newStatus) habit.streak + 1 else (habit.streak - 1).coerceAtLeast(0)
         val longestStreak = maxOf(habit.longestStreak, newStreak)
 
-        habitDao.updateHabit(
-            habit.copy(
-                isCompletedToday = newStatus,
-                streak = newStreak,
-                longestStreak = longestStreak
-            )
+        val updatedHabit = habit.copy(
+            isCompletedToday = newStatus,
+            streak = newStreak,
+            longestStreak = longestStreak
         )
+        habitDao.updateHabit(updatedHabit)
+
+        // Sync to Firestore
+        authRepository.currentUser?.uid?.let { uid ->
+            firestoreRepository.syncHabit(uid, updatedHabit)
+        }
 
         val today = getCurrentDate()
         if (newStatus) {
             habitLogDao.insertLog(HabitLog(habitId = habit.id, date = today, isCompleted = true))
+            
+            // Log Analytics Event
+            analytics.logEvent("habit_completed", Bundle().apply {
+                putString("habit_name", habit.name)
+                putString("category", habit.category)
+                putInt("streak", newStreak)
+            })
+
             // Reward points
             userDao.addPoints(15)
             badgeDao.insertTransaction(
@@ -155,6 +176,11 @@ class HabfitRepositoryImpl @Inject constructor(
 
     override suspend fun deleteHabit(id: Int) {
         habitDao.deleteHabit(id)
+        
+        // Sync to Firestore
+        authRepository.currentUser?.uid?.let { uid ->
+            firestoreRepository.deleteHabit(uid, id)
+        }
     }
 
     override suspend fun updateHabit(habit: Habit) {
@@ -221,6 +247,11 @@ class HabfitRepositoryImpl @Inject constructor(
 
     override suspend fun deleteWorkout(id: Int) {
         fitnessDao.deleteWorkout(id)
+        
+        // Sync to Firestore
+        authRepository.currentUser?.uid?.let { uid ->
+            firestoreRepository.deleteWorkout(uid, id)
+        }
     }
 
     override fun getDailyMissions(): Flow<List<AssistantTask>> = assistantDao.getDailyMissions()
@@ -328,26 +359,41 @@ class HabfitRepositoryImpl @Inject constructor(
     override suspend fun createPost(title: String, body: String, tag: String) {
         val user = userDao.getUserSync()
         val authorName = user?.name ?: "Habfit Member"
-        communityDao.insertPost(
-            ContentPost(
-                creatorId = "user_me",
-                creatorName = authorName,
-                creatorSpecialization = "Habfit Consistency Member",
-                title = title,
-                body = body,
-                likesCount = 1,
-                isLiked = true,
-                sharesCount = 0,
-                tag = if (tag.startsWith("#")) tag else "#$tag",
-                timeAgo = "Just now"
-            )
+        val userId = authRepository.currentUser?.uid ?: "user_me"
+        
+        val post = ContentPost(
+            creatorId = userId,
+            creatorName = authorName,
+            creatorSpecialization = "Habfit Consistency Member",
+            title = title,
+            body = body,
+            likesCount = 0,
+            isLiked = false,
+            sharesCount = 0,
+            tag = if (tag.startsWith("#")) tag else "#$tag",
+            timeAgo = "Just now"
         )
+        
+        val id = communityDao.insertPost(post)
+        
+        // Sync to Firestore
+        firestoreRepository.createCommunityPost(post.copy(id = id.toInt()))
+        
+        // Log Analytics
+        analytics.logEvent("community_post_created", Bundle().apply {
+            putString("tag", tag)
+        })
     }
 
     override suspend fun toggleLike(post: ContentPost) {
         val newLiked = !post.isLiked
         val newCount = if (newLiked) post.likesCount + 1 else (post.likesCount - 1).coerceAtLeast(0)
         communityDao.updateLikeStatus(post.id, newLiked, newCount)
+        
+        // Sync to Firestore
+        authRepository.currentUser?.uid?.let { uid ->
+            firestoreRepository.toggleLikePost(post.id, uid, newLiked)
+        }
     }
 
     override fun getAllCreators(): Flow<List<CreatorProfile>> = communityDao.getAllCreators()

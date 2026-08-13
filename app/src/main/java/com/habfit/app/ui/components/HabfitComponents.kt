@@ -52,6 +52,8 @@ fun HabfitCard(
 fun HabfitButton(
     text: String,
     modifier: Modifier = Modifier,
+    containerColor: Color = PrimaryNeonGreen,
+    contentColor: Color = Color.Black,
     onClick: () -> Unit
 ) {
     Button(
@@ -61,8 +63,8 @@ fun HabfitButton(
             .height(56.dp),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = PrimaryNeonGreen,
-            contentColor = Color.Black
+            containerColor = containerColor,
+            contentColor = contentColor
         )
     ) {
         Text(

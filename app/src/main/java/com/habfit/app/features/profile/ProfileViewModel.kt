@@ -42,4 +42,11 @@ class ProfileViewModel @Inject constructor(
             )
         }
     }
+
+    fun logout(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.logout()
+            onSuccess()
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.habfit.app.features.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -51,17 +53,40 @@ import com.habfit.app.ui.components.HabfitCard
 import com.habfit.app.ui.components.HabfitTextField
 import com.habfit.app.ui.theme.Background
 import com.habfit.app.ui.theme.CardBackground
+import com.habfit.app.ui.theme.ErrorColor
 import com.habfit.app.ui.theme.GoldReward
 import com.habfit.app.ui.theme.PrimaryNeonGreen
 import com.habfit.app.ui.theme.PrimaryText
 import com.habfit.app.ui.theme.SecondaryText
 
+import androidx.compose.ui.tooling.preview.Preview
+import com.habfit.app.ui.theme.HabfitTheme
+
 @Composable
 fun ProfileScreen(
+    onLogout: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val user by viewModel.user.collectAsState()
     val badges by viewModel.badges.collectAsState()
+
+    ProfileContent(
+        user = user,
+        badges = badges,
+        onLogout = onLogout,
+        onUpdateNotifications = { viewModel.updateNotifications(it) },
+        onUpdateProfile = { name, goal -> viewModel.updateProfile(name, goal) }
+    )
+}
+
+@Composable
+fun ProfileContent(
+    user: User?,
+    badges: List<Badge>,
+    onLogout: () -> Unit,
+    onUpdateNotifications: (Boolean) -> Unit,
+    onUpdateProfile: (String, String) -> Unit
+) {
     var showEditProfileDialog by remember { mutableStateOf(false) }
 
     val name = user?.name ?: "Habfit Champion"
@@ -172,7 +197,7 @@ fun ProfileScreen(
                     }
                     Switch(
                         checked = user?.isNotificationsEnabled ?: true,
-                        onCheckedChange = { viewModel.updateNotifications(it) },
+                        onCheckedChange = { onUpdateNotifications(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.Black,
                             checkedTrackColor = PrimaryNeonGreen,
@@ -182,6 +207,18 @@ fun ProfileScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            HabfitButton(
+                text = "LOGOUT",
+                containerColor = Color.Transparent,
+                contentColor = ErrorColor,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ErrorColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                onClick = onLogout
+            )
 
             Spacer(modifier = Modifier.height(80.dp))
         }
@@ -193,9 +230,23 @@ fun ProfileScreen(
             currentGoal = user?.mainGoal ?: "Build Consistency & Fitness",
             onDismiss = { showEditProfileDialog = false },
             onConfirm = { newName, newGoal ->
-                viewModel.updateProfile(newName, newGoal)
+                onUpdateProfile(newName, newGoal)
                 showEditProfileDialog = false
             }
+        )
+    }
+}
+
+@Preview
+@Composable
+fun ProfileScreenPreview() {
+    HabfitTheme {
+        ProfileContent(
+            user = User(name = "Surya D", points = 1250, level = 4),
+            badges = emptyList(),
+            onLogout = {},
+            onUpdateNotifications = {},
+            onUpdateProfile = { _, _ -> }
         )
     }
 }

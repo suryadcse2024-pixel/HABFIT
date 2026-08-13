@@ -1,6 +1,7 @@
 package com.habfit.app.core.di
 
 import android.app.Application
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.habfit.app.data.local.AssistantDao
 import com.habfit.app.data.local.BadgeDao
 import com.habfit.app.data.local.ChatDao
@@ -74,7 +75,8 @@ object AppModule {
         badgeDao: BadgeDao,
         communityDao: CommunityDao,
         authRepository: AuthRepository,
-        firestoreRepository: FirestoreRepository
+        firestoreRepository: FirestoreRepository,
+        analytics: FirebaseAnalytics
     ): HabfitRepository {
         return HabfitRepositoryImpl(
             userDao,
@@ -85,7 +87,8 @@ object AppModule {
             badgeDao,
             communityDao,
             authRepository,
-            firestoreRepository
+            firestoreRepository,
+            analytics
         )
     }
 }
