@@ -1,0 +1,33 @@
+# Tasks - HABFIT Android App Implementation
+
+- [x] **Phase 1: Core Project Setup & Dependencies**
+    - [x] Rename package to `com.habfit.app` (Directories & Gradle)
+    - [x] Update `libs.versions.toml` with HABFIT dependencies
+    - [x] Configure Project-level `build.gradle.kts`
+    - [x] Configure App-level `build.gradle.kts`
+    - [x] Initialize Habfit Design System (Theme & Basic Components)
+- [x] **Phase 2: Authentication & Onboarding**
+    - [ ] Setup Firebase Auth & Google Sign-In structure
+    - [x] Implement Splash Screen with logo animation
+    - [x] Implement Multi-page Onboarding flow
+    - [x] Implement Login & Signup screens
+- [x] **Phase 3: Core Navigation & Habit Tracker**
+    - [x] Setup Navigation Compose (15+ routes)
+    - [x] Setup Room Database for Habits
+    - [x] Implement Habit Tracker UI (List & Add Habit)
+    - [x] Implement Streak Calculation & Coin rewards
+- [x] **Phase 4: Fitness & Home Dashboard**
+    - [x] Implement Home Dashboard (Life Score, Charts, Missions)
+    - [x] Implement Fitness tracking screen & Workout timer
+- [x] **Phase 5: AI Integration (Gemini)**
+    - [x] Setup Gemini AI Service
+    - [x] Implement Habit AI Chat & Smart Goal recommendations
+- [x] **Phase 6: Social & Community**
+    - [x] Implement Community Feed & Influencer Platform
+    - [x] Integrate Firebase Storage for media
+- [x] **Phase 7: Maps & Nearby**
+    - [x] Integrate Google Maps SDK
+    - [x] Implement Gym/Run Club discovery with markers
+- [x] **Phase 8: Polish & Final Verification**
+    - [x] Complete UI/UX Polish (Premium Dark Theme check)
+    - [x] Final Build & Error verification
