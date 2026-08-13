@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.habfit.app.domain.model.ContentPost
 import com.habfit.app.domain.model.CreatorProfile
+import com.habfit.app.domain.repository.FirestoreRepository
 import com.habfit.app.domain.repository.HabfitRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,10 +15,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CommunityViewModel @Inject constructor(
-    private val repository: HabfitRepository
+    private val repository: HabfitRepository,
+    private val firestoreRepository: FirestoreRepository
 ) : ViewModel() {
 
-    val posts: StateFlow<List<ContentPost>> = repository.getAllPosts()
+    val posts: StateFlow<List<ContentPost>> = firestoreRepository.getCommunityPosts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val creators: StateFlow<List<CreatorProfile>> = repository.getAllCreators()

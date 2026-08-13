@@ -1,0 +1,18 @@
+package com.habfit.app.domain.repository
+
+import com.habfit.app.domain.model.ContentPost
+import com.habfit.app.domain.model.Habit
+import com.habfit.app.domain.model.Workout
+import kotlinx.coroutines.flow.Flow
+
+interface FirestoreRepository {
+    // Personal Data Sync
+    suspend fun syncHabit(userId: String, habit: Habit)
+    suspend fun deleteHabit(userId: String, habitId: Int)
+    suspend fun syncWorkout(userId: String, workout: Workout)
+    
+    // Community Data
+    fun getCommunityPosts(): Flow<List<ContentPost>>
+    suspend fun createCommunityPost(post: ContentPost)
+    suspend fun toggleLikePost(postId: Int, userId: String, isLiked: Boolean)
+}

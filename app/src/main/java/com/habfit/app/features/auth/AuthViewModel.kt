@@ -3,6 +3,7 @@ package com.habfit.app.features.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.habfit.app.domain.model.User
+import com.habfit.app.domain.repository.AuthRepository
 import com.habfit.app.domain.repository.HabfitRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val repository: HabfitRepository
+    private val authRepository: AuthRepository,
+    private val habfitRepository: HabfitRepository
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
@@ -29,19 +31,18 @@ class AuthViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _isLoading.value = true
-            val user = repository.getUserSync()
-            if (user == null) {
-                repository.saveUserPreferences(
-                    name = email.substringBefore("@").replace(".", " ").capitalize(),
-                    goal = "Build Consistency & Fitness",
-                    level = "Intermediate",
-                    activities = "Strength,Running",
-                    time = 30,
-                    starterHabits = emptyList()
-                )
-            }
-            _isLoading.value = false
-            onSuccess()
+            _errorMessage.value = null
+            
+            authRepository.login(email, password).fold(
+                onSuccess = {
+                    _isLoading.value = false
+                    onSuccess()
+                },
+                onFailure = {
+                    _isLoading.value = false
+                    _errorMessage.value = it.localizedMessage ?: "Login failed"
+                }
+            )
         }
     }
 
@@ -56,16 +57,45 @@ class AuthViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _isLoading.value = true
-            repository.saveUserPreferences(
-                name = name,
-                goal = "Build Consistency & Fitness",
-                level = "Intermediate",
-                activities = "Strength,Running",
-                time = 30,
-                starterHabits = emptyList()
+            _errorMessage.value = null
+
+            authRepository.signup(name, email, password).fold(
+                onSuccess = {
+                    // Initialize local preferences with cloud data
+                    habfitRepository.saveUserPreferences(
+                        name = name,
+                        goal = "Build Consistency & Fitness",
+                        level = "Intermediate",
+                        activities = "Strength,Running",
+                        time = 30,
+                        starterHabits = emptyList()
+                    )
+                    _isLoading.value = false
+                    onSuccess()
+                },
+                onFailure = {
+                    _isLoading.value = false
+                    _errorMessage.value = it.localizedMessage ?: "Signup failed"
+                }
             )
-            _isLoading.value = false
-            onSuccess()
+        }
+    }
+
+    fun signInWithGoogle(idToken: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+
+            authRepository.signInWithGoogle(idToken).fold(
+                onSuccess = {
+                    _isLoading.value = false
+                    onSuccess()
+                },
+                onFailure = {
+                    _isLoading.value = false
+                    _errorMessage.value = it.localizedMessage ?: "Google Sign-In failed"
+                }
+            )
         }
     }
 }

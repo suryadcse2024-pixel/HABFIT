@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.habfit.app.domain.model.AssistantTask
 import com.habfit.app.domain.model.Badge
+import com.habfit.app.domain.model.ChatMessage
 import com.habfit.app.domain.model.ContentPost
 import com.habfit.app.domain.model.CreatorProfile
 import com.habfit.app.domain.model.FitnessGoal
@@ -32,9 +33,10 @@ import kotlinx.coroutines.launch
         Badge::class,
         RewardTransaction::class,
         ContentPost::class,
-        CreatorProfile::class
+        CreatorProfile::class,
+        ChatMessage::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class HabitDatabase : RoomDatabase() {
@@ -45,6 +47,7 @@ abstract class HabitDatabase : RoomDatabase() {
     abstract val assistantDao: AssistantDao
     abstract val badgeDao: BadgeDao
     abstract val communityDao: CommunityDao
+    abstract val chatDao: ChatDao
 
     companion object {
         @Volatile

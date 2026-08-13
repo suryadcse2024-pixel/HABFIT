@@ -18,6 +18,8 @@ import com.habfit.app.domain.model.LifeScoreData
 import com.habfit.app.domain.model.RewardTransaction
 import com.habfit.app.domain.model.User
 import com.habfit.app.domain.model.Workout
+import com.habfit.app.domain.repository.AuthRepository
+import com.habfit.app.domain.repository.FirestoreRepository
 import com.habfit.app.domain.repository.HabfitRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -35,7 +37,9 @@ class HabfitRepositoryImpl @Inject constructor(
     private val fitnessDao: FitnessDao,
     private val assistantDao: AssistantDao,
     private val badgeDao: BadgeDao,
-    private val communityDao: CommunityDao
+    private val communityDao: CommunityDao,
+    private val authRepository: AuthRepository,
+    private val firestoreRepository: FirestoreRepository
 ) : HabfitRepository {
 
     private fun getCurrentDate(): String {
@@ -110,7 +114,12 @@ class HabfitRepositoryImpl @Inject constructor(
             frequency = frequency.ifBlank { "Daily" },
             reminderTime = reminderTime.ifBlank { "08:00 AM" }
         )
-        habitDao.insertHabit(habit)
+        val id = habitDao.insertHabit(habit)
+        
+        // Sync to Firestore
+        authRepository.currentUser?.uid?.let { uid ->
+            firestoreRepository.syncHabit(uid, habit.copy(id = id.toInt()))
+        }
     }
 
     override suspend fun toggleHabitCompletion(habit: Habit) {
@@ -191,7 +200,12 @@ class HabfitRepositoryImpl @Inject constructor(
             intensity = intensity,
             notes = notes
         )
-        fitnessDao.insertWorkout(workout)
+        val id = fitnessDao.insertWorkout(workout)
+
+        // Sync to Firestore
+        authRepository.currentUser?.uid?.let { uid ->
+            firestoreRepository.syncWorkout(uid, workout.copy(id = id.toInt()))
+        }
 
         // Reward points for workout
         userDao.addPoints(30)

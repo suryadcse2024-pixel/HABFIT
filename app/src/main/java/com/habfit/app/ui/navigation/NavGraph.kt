@@ -4,11 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.habfit.app.features.auth.LoginScreen
 import com.habfit.app.features.auth.SignupScreen
 import com.habfit.app.features.main.MainScreen
 import com.habfit.app.features.onboarding.OnboardingScreen
 import com.habfit.app.features.splash.SplashScreen
+import com.habfit.app.features.splash.SplashViewModel
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
@@ -25,14 +27,18 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun HabfitNavGraph(navController: NavHostController) {
+fun HabfitNavGraph(
+    navController: NavHostController,
+    splashViewModel: SplashViewModel = hiltViewModel()
+) {
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
         composable(Screen.Splash.route) {
             SplashScreen(onAnimationFinished = {
-                navController.navigate(Screen.Onboarding.route) {
+                val destination = splashViewModel.getStartDestination()
+                navController.navigate(destination) {
                     popUpTo(Screen.Splash.route) { inclusive = true }
                 }
             })

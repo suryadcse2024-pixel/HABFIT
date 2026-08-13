@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.habfit.app.domain.model.AssistantTask
+import com.habfit.app.domain.model.ChatMessage
 import com.habfit.app.ui.components.HabfitButton
 import com.habfit.app.ui.components.HabfitCard
 import com.habfit.app.ui.components.HabfitSectionTitle
@@ -57,10 +59,12 @@ import com.habfit.app.ui.theme.SecondaryText
 fun AIScreen(
     viewModel: AIViewModel = hiltViewModel()
 ) {
-    val response by viewModel.chatResponse.collectAsState()
+    val chatMessages by viewModel.chatMessages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val recommendations by viewModel.aiRecommendations.collectAsState()
     var prompt by remember { mutableStateOf("") }
+
+    val scrollState = rememberScrollState()
 
     val promptSuggestions = listOf(
         "Suggest 20-min HIIT",
@@ -77,7 +81,7 @@ fun AIScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
         ) {
             Spacer(modifier = Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -99,6 +103,17 @@ fun AIScreen(
                         text = "Your Personal AI Coach",
                         color = SecondaryText,
                         fontSize = 14.sp
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                if (chatMessages.isNotEmpty()) {
+                    Text(
+                        text = "Clear",
+                        color = SecondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .clickable { viewModel.clearHistory() }
+                            .padding(8.dp)
                     )
                 }
             }
@@ -129,22 +144,28 @@ fun AIScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // AI Coach Output Card
-            HabfitCard(modifier = Modifier.fillMaxWidth()) {
-                Box(modifier = Modifier.padding(20.dp)) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = PurpleAI,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    } else {
+            // Chat Messages History
+            if (chatMessages.isEmpty()) {
+                HabfitCard(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = response,
+                            text = "👋 Hello! I am your HABFIT Coach.\n\nI can suggest daily micro-habits, create personalized HIIT/strength routines, or analyze your consistency trends. What are you working on today?",
                             color = PrimaryText,
                             fontSize = 14.sp,
                             lineHeight = 22.sp
                         )
                     }
+                }
+            } else {
+                chatMessages.forEach { message ->
+                    ChatMessageItem(message = message)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PurpleAI, modifier = Modifier.size(24.dp))
                 }
             }
 
@@ -181,6 +202,37 @@ fun AIScreen(
             }
 
             Spacer(modifier = Modifier.height(80.dp)) // space for bottom nav
+        }
+    }
+}
+
+@Composable
+fun ChatMessageItem(message: ChatMessage) {
+    val isUser = message.role == "user"
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isUser) 16.dp else 4.dp,
+                        bottomEnd = if (isUser) 4.dp else 16.dp
+                    )
+                )
+                .background(if (isUser) PurpleAI else CardBackground)
+                .padding(12.dp)
+                .widthIn(max = 280.dp)
+        ) {
+            Text(
+                text = message.content,
+                color = if (isUser) Color.White else PrimaryText,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
         }
     }
 }
