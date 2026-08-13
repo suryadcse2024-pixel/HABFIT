@@ -24,9 +24,9 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.habfit.app" />
-                  <option name="mobileSdkAppId" value="1:123456789012:android:0000000000000000000000" />
-                  <option name="projectId" value="habfit-app-dummy" />
-                  <option name="projectNumber" value="123456789012" />
+                  <option name="mobileSdkAppId" value="1:231110694875:android:a5dc1b9c2956f40cf779fe" />
+                  <option name="projectId" value="habfit-b70b2" />
+                  <option name="projectNumber" value="231110694875" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

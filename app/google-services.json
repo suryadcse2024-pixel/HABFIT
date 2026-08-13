@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "habfit-app-dummy",
-    "storage_bucket": "habfit-app-dummy.appspot.com"
+    "project_number": "231110694875",
+    "project_id": "habfit-b70b2",
+    "storage_bucket": "habfit-b70b2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:231110694875:android:a5dc1b9c2956f40cf779fe",
         "android_client_info": {
           "package_name": "com.habfit.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForBuildConsistency"
+          "current_key": "AIzaSyCAJ5x6OTl9gSvsu2A07HZrfEz2fuvAclk"
         }
       ],
       "services": {
