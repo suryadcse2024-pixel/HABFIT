@@ -6,10 +6,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -41,9 +42,9 @@ fun HabfitBottomNavigationBar(
 ) {
     val items = listOf(
         BottomNavItem("HOME", Screen.Home.route, Icons.Default.Home),
-        BottomNavItem("HABITS", Screen.Habits.route, Icons.Default.List),
-        BottomNavItem("FITNESS", Screen.Fitness.route, Icons.Default.Public),
-        BottomNavItem("COMMUNITY", Screen.Community.route, Icons.Default.Public),
+        BottomNavItem("HABITS", Screen.Habits.route, Icons.Default.CheckCircle),
+        BottomNavItem("FITNESS", Screen.Fitness.route, Icons.Default.FitnessCenter),
+        BottomNavItem("COMMUNITY", Screen.Community.route, Icons.Default.Groups),
         BottomNavItem("PROFILE", Screen.Profile.route, Icons.Default.Person)
     )
 

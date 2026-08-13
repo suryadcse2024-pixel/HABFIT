@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,9 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.habfit.app.ui.components.HabfitButton
 import com.habfit.app.ui.components.HabfitTextField
 import com.habfit.app.ui.theme.Background
+import com.habfit.app.ui.theme.ErrorColor
 import com.habfit.app.ui.theme.PrimaryNeonGreen
 import com.habfit.app.ui.theme.PrimaryText
 import com.habfit.app.ui.theme.SecondaryText
@@ -31,10 +34,12 @@ import com.habfit.app.ui.theme.SecondaryText
 @Composable
 fun LoginScreen(
     onNavigateToSignup: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    viewModel: AuthViewModel = hiltViewModel()
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("alex@habfit.app") }
+    var password by remember { mutableStateOf("habfit123") }
+    val error by viewModel.errorMessage.collectAsState()
 
     Column(
         modifier = Modifier
@@ -46,9 +51,10 @@ fun LoginScreen(
     ) {
         Text(
             text = "HABFIT",
-            fontSize = 32.sp,
+            fontSize = 36.sp,
             fontWeight = FontWeight.Black,
-            color = PrimaryNeonGreen
+            color = PrimaryNeonGreen,
+            letterSpacing = 2.sp
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -57,7 +63,21 @@ fun LoginScreen(
             fontWeight = FontWeight.Bold,
             color = PrimaryText
         )
+        Text(
+            text = "Your consistency journey continues",
+            fontSize = 14.sp,
+            color = SecondaryText
+        )
         Spacer(modifier = Modifier.height(32.dp))
+
+        if (error != null) {
+            Text(
+                text = error ?: "",
+                color = ErrorColor,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+        }
 
         HabfitTextField(
             value = email,
@@ -75,7 +95,9 @@ fun LoginScreen(
 
         HabfitButton(
             text = "LOGIN",
-            onClick = onLoginSuccess
+            onClick = {
+                viewModel.login(email, password, onLoginSuccess)
+            }
         )
         Spacer(modifier = Modifier.height(16.dp))
 

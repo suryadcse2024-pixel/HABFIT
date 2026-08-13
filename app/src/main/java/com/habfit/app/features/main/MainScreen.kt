@@ -16,11 +16,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.habfit.app.features.ai.AIScreen
-import com.habfit.app.features.habits.HabitScreen
 import com.habfit.app.features.community.CommunityScreen
+import com.habfit.app.features.fitness.FitnessScreen
+import com.habfit.app.features.habits.HabitScreen
 import com.habfit.app.features.home.HomeScreen
 import com.habfit.app.features.profile.ProfileScreen
-import com.habfit.app.features.nearby.NearbyScreen
 import com.habfit.app.ui.navigation.HabfitBottomNavigationBar
 import com.habfit.app.ui.navigation.Screen
 import com.habfit.app.ui.theme.Background
@@ -69,7 +69,7 @@ fun MainScreen() {
             composable(Screen.Home.route) { HomeScreen() }
             composable(Screen.Habits.route) { HabitScreen() }
             composable(Screen.AI.route) { AIScreen() }
-            composable(Screen.Fitness.route) { NearbyScreen() }
+            composable(Screen.Fitness.route) { FitnessScreen() }
             composable(Screen.Community.route) { CommunityScreen() }
             composable(Screen.Profile.route) { ProfileScreen() }
         }
