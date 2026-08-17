@@ -1,5 +1,6 @@
 package com.habfit.app.features.onboarding
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,10 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,13 +41,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.habfit.app.ui.components.HabfitButton
-import com.habfit.app.ui.components.HabfitCard
 import com.habfit.app.ui.theme.Background
 import com.habfit.app.ui.theme.CardBackground
+import com.habfit.app.ui.theme.HabfitTheme
 import com.habfit.app.ui.theme.PrimaryNeonGreen
 import com.habfit.app.ui.theme.PrimaryText
 import com.habfit.app.ui.theme.SecondaryText
@@ -55,54 +61,129 @@ fun OnboardingScreen(
 ) {
     val pagerState = rememberPagerState(pageCount = { 5 })
     val scope = rememberCoroutineScope()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-    val selectedGoal by viewModel.selectedGoal.collectAsState()
+    val selectedGoals by viewModel.selectedGoals.collectAsState()
     val selectedLevel by viewModel.selectedLevel.collectAsState()
     val selectedActivities by viewModel.selectedActivities.collectAsState()
     val selectedTime by viewModel.selectedTime.collectAsState()
-    val selectedHabits by viewModel.selectedHabits.collectAsState()
+    val selectedReminder by viewModel.selectedReminder.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    val isStepComplete = when (pagerState.currentPage) {
+        0 -> selectedGoals.isNotEmpty()
+        1 -> selectedLevel != null
+        2 -> selectedActivities.isNotEmpty()
+        3 -> selectedTime != null
+        4 -> selectedReminder != null
+        else -> false
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
     ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            OnboardingPageContent(
-                pageIndex = page,
-                selectedGoal = selectedGoal,
-                selectedLevel = selectedLevel,
-                selectedActivities = selectedActivities,
-                selectedTime = selectedTime,
-                selectedHabits = selectedHabits,
-                onGoalSelected = { viewModel.setGoal(it) },
-                onLevelSelected = { viewModel.setLevel(it) },
-                onActivityToggled = { viewModel.toggleActivity(it) },
-                onTimeSelected = { viewModel.setTime(it) },
-                onHabitToggled = { viewModel.toggleHabit(it) }
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(24.dp)
-        ) {
-            HabfitButton(
-                text = if (pagerState.currentPage == 4) "GENERATE MY HABFIT PLAN" else "NEXT",
-                onClick = {
-                    if (pagerState.currentPage < 4) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header with Back Button and Progress
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (pagerState.currentPage > 0) {
+                    IconButton(onClick = {
                         scope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
                         }
-                    } else {
-                        viewModel.completeOnboarding(onFinished)
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryText)
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(48.dp))
+                }
+
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Step ${pagerState.currentPage + 1} of 5",
+                        color = SecondaryText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = (pagerState.currentPage + 1) / 5f,
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(6.dp)
+                            .clip(CircleShape),
+                        color = PrimaryNeonGreen,
+                        trackColor = CardBackground
+                    )
+                }
+                Spacer(modifier = Modifier.width(48.dp))
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+                userScrollEnabled = false // Force using buttons for validation
+            ) { page ->
+                OnboardingPageContent(
+                    pageIndex = page,
+                    selectedGoals = selectedGoals,
+                    selectedLevel = selectedLevel,
+                    selectedActivities = selectedActivities,
+                    selectedTime = selectedTime,
+                    selectedReminder = selectedReminder,
+                    onGoalToggled = { viewModel.toggleGoal(it) },
+                    onLevelSelected = { viewModel.setLevel(it) },
+                    onActivityToggled = { viewModel.toggleActivity(it) },
+                    onTimeSelected = { viewModel.setTime(it) },
+                    onReminderSelected = { viewModel.setReminder(it) }
+                )
+            }
+
+            // Bottom Navigation
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = PrimaryNeonGreen
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        errorMessage?.let {
+                            Text(
+                                text = it,
+                                color = com.habfit.app.ui.theme.ErrorColor,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        HabfitButton(
+                            text = if (pagerState.currentPage == 4) "FINISH" else "CONTINUE",
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                if (isStepComplete) {
+                                    if (pagerState.currentPage < 4) {
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                        }
+                                    } else {
+                                        viewModel.completeOnboarding(onFinished)
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
-            )
+            }
         }
     }
 }
@@ -110,87 +191,77 @@ fun OnboardingScreen(
 @Composable
 fun OnboardingPageContent(
     pageIndex: Int,
-    selectedGoal: String,
-    selectedLevel: String,
+    selectedGoals: Set<String>,
+    selectedLevel: String?,
     selectedActivities: Set<String>,
-    selectedTime: Int,
-    selectedHabits: Set<String>,
-    onGoalSelected: (String) -> Unit,
+    selectedTime: String?,
+    selectedReminder: String?,
+    onGoalToggled: (String) -> Unit,
     onLevelSelected: (String) -> Unit,
     onActivityToggled: (String) -> Unit,
-    onTimeSelected: (Int) -> Unit,
-    onHabitToggled: (String) -> Unit
+    onTimeSelected: (String) -> Unit,
+    onReminderSelected: (String) -> Unit
 ) {
     val title = when (pageIndex) {
-        0 -> "What's your main goal?"
-        1 -> "Fitness Level"
-        2 -> "Preferred Activities"
-        3 -> "Daily Available Time"
-        4 -> "Choose Your Habits"
+        0 -> "What are your goals?"
+        1 -> "What is your experience level?"
+        2 -> "What activities do you enjoy?"
+        3 -> "How much time do you have daily?"
+        4 -> "When should we remind you?"
         else -> ""
     }
 
     val subtitle = when (pageIndex) {
-        0 -> "Help us personalize your daily routines"
-        1 -> "Select where you are in your journey"
-        2 -> "What do you enjoy doing most?"
-        3 -> "How much time can you commit each day?"
-        4 -> "Start with these core consistency habits"
+        0 -> "Select one or multiple goals to personalize your journey"
+        1 -> "Help us tailor your workouts and habits"
+        2 -> "Choose the activities you'd like to include"
+        3 -> "Consistency is key, choose a sustainable time"
+        4 -> "We'll help you stay on track with gentle reminders"
         else -> ""
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = title,
-            fontSize = 28.sp,
+            fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             color = PrimaryText,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = subtitle,
             fontSize = 14.sp,
             color = SecondaryText,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
         when (pageIndex) {
             0 -> {
-                val goals = listOf(
-                    "Build Consistency & Fitness",
-                    "Lose Body Fat & Get Lean",
-                    "Gain Muscle & Strength",
-                    "Improve Daily Energy & Focus",
-                    "Fix Sleep & Daily Routine"
-                )
+                val goals = listOf("Build Healthy Habits", "Improve Fitness", "Lose Weight", "Build Muscle", "Stay Active")
                 goals.forEach { goal ->
-                    SelectableItemCard(
+                    OnboardingItemCard(
                         text = goal,
-                        isSelected = selectedGoal == goal,
-                        onClick = { onGoalSelected(goal) }
+                        isSelected = selectedGoals.contains(goal),
+                        isMultiSelect = true,
+                        onClick = { onGoalToggled(goal) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
             1 -> {
-                val levels = listOf(
-                    "Beginner" to "Starting fresh or restarting routine",
-                    "Intermediate" to "Train 2-3x / week with basic habits",
-                    "Advanced" to "Consistent athlete seeking peak optimization"
-                )
-                levels.forEach { (level, desc) ->
-                    SelectableItemCard(
+                val levels = listOf("Beginner", "Intermediate", "Advanced")
+                levels.forEach { level ->
+                    OnboardingItemCard(
                         text = level,
-                        subText = desc,
                         isSelected = selectedLevel == level,
                         onClick = { onLevelSelected(level) }
                     )
@@ -198,68 +269,47 @@ fun OnboardingPageContent(
                 }
             }
             2 -> {
-                val activities = listOf(
-                    "Strength / Gym",
-                    "Running / Walking",
-                    "Home Workouts",
-                    "Yoga & Mobility",
-                    "Cycling / HIIT"
-                )
-                activities.forEach { act ->
-                    SelectableItemCard(
-                        text = act,
-                        isSelected = selectedActivities.contains(act),
+                val activities = listOf("Walking", "Running", "Gym", "Home Workout", "Yoga", "Cycling")
+                activities.forEach { activity ->
+                    OnboardingItemCard(
+                        text = activity,
+                        isSelected = selectedActivities.contains(activity),
                         isMultiSelect = true,
-                        onClick = { onActivityToggled(act) }
+                        onClick = { onActivityToggled(activity) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
             3 -> {
-                val times = listOf(
-                    15 to "15 minutes (Quick & Focused)",
-                    30 to "30 minutes (Balanced Routine)",
-                    45 to "45 minutes (Comprehensive)",
-                    60 to "60+ minutes (Intense Focus)"
-                )
-                times.forEach { (mins, label) ->
-                    SelectableItemCard(
-                        text = label,
-                        isSelected = selectedTime == mins,
-                        onClick = { onTimeSelected(mins) }
+                val times = listOf("10 Minutes", "20 Minutes", "30 Minutes", "45+ Minutes")
+                times.forEach { time ->
+                    OnboardingItemCard(
+                        text = time,
+                        isSelected = selectedTime == time,
+                        onClick = { onTimeSelected(time) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
             4 -> {
-                val habits = listOf(
-                    "Drink 2.5L Water" to "Health",
-                    "Morning Stretch & Mobility" to "Fitness",
-                    "Hit 8,000 Daily Steps" to "Fitness",
-                    "Read 15 Pages" to "Mind",
-                    "10-min Evening Reflection" to "Routine",
-                    "No Late Snacking after 8PM" to "Health"
-                )
-                habits.forEach { (habit, cat) ->
-                    SelectableItemCard(
-                        text = habit,
-                        subText = "Category: $cat",
-                        isSelected = selectedHabits.contains(habit),
-                        isMultiSelect = true,
-                        onClick = { onHabitToggled(habit) }
+                val reminders = listOf("Morning", "Afternoon", "Evening", "No Reminders")
+                reminders.forEach { reminder ->
+                    OnboardingItemCard(
+                        text = reminder,
+                        isSelected = selectedReminder == reminder,
+                        onClick = { onReminderSelected(reminder) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
         }
-        Spacer(modifier = Modifier.height(100.dp)) // space for bottom button
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
-fun SelectableItemCard(
+fun OnboardingItemCard(
     text: String,
-    subText: String? = null,
     isSelected: Boolean,
     isMultiSelect: Boolean = false,
     onClick: () -> Unit
@@ -268,40 +318,34 @@ fun SelectableItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) CardBackground else CardBackground.copy(alpha = 0.6f)
+            containerColor = if (isSelected) PrimaryNeonGreen.copy(alpha = 0.1f) else CardBackground
         ),
         border = BorderStroke(
-            width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) PrimaryNeonGreen else Color.White.copy(alpha = 0.08f)
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) PrimaryNeonGreen else Color.White.copy(alpha = 0.05f)
         )
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = text,
-                    color = if (isSelected) PrimaryNeonGreen else PrimaryText,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
-                if (subText != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = subText,
-                        color = SecondaryText,
-                        fontSize = 12.sp
-                    )
-                }
-            }
+            Text(
+                text = text,
+                color = if (isSelected) PrimaryText else SecondaryText,
+                fontSize = 16.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            )
+            
             Box(
                 modifier = Modifier
                     .size(24.dp)
                     .clip(if (isMultiSelect) RoundedCornerShape(6.dp) else CircleShape)
-                    .background(if (isSelected) PrimaryNeonGreen else Color.White.copy(alpha = 0.08f)),
+                    .background(if (isSelected) PrimaryNeonGreen else Color.White.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
@@ -313,6 +357,50 @@ fun SelectableItemCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OnboardingGoalStepPreview() {
+    HabfitTheme {
+        Box(modifier = Modifier.background(Background)) {
+            OnboardingPageContent(
+                pageIndex = 0,
+                selectedGoals = setOf("Build Healthy Habits"),
+                selectedLevel = null,
+                selectedActivities = emptySet(),
+                selectedTime = null,
+                selectedReminder = null,
+                onGoalToggled = {},
+                onLevelSelected = {},
+                onActivityToggled = {},
+                onTimeSelected = {},
+                onReminderSelected = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OnboardingLevelStepPreview() {
+    HabfitTheme {
+        Box(modifier = Modifier.background(Background)) {
+            OnboardingPageContent(
+                pageIndex = 1,
+                selectedGoals = emptySet(),
+                selectedLevel = "Intermediate",
+                selectedActivities = emptySet(),
+                selectedTime = null,
+                selectedReminder = null,
+                onGoalToggled = {},
+                onLevelSelected = {},
+                onActivityToggled = {},
+                onTimeSelected = {},
+                onReminderSelected = {}
+            )
         }
     }
 }

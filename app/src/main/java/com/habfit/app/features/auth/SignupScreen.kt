@@ -7,9 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import com.habfit.app.ui.components.HabfitCard
+import com.habfit.app.ui.theme.CardBackground
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,7 +41,7 @@ import com.habfit.app.ui.theme.SecondaryText
 @Composable
 fun SignupScreen(
     onNavigateToLogin: () -> Unit,
-    onSignupSuccess: () -> Unit,
+    onSignupSuccess: (String) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     var name by remember { mutableStateOf("") }
@@ -80,39 +88,53 @@ fun SignupScreen(
             )
         }
 
-        HabfitTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = "Name"
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        HabfitTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = "Email"
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        HabfitTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = "Password",
-            isPassword = true
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        HabfitTextField(
-            value = confirmPassword,
-            onValueChange = { confirmPassword = it },
-            label = "Confirm Password",
-            isPassword = true
-        )
-        Spacer(modifier = Modifier.height(32.dp))
+        HabfitCard(
+            modifier = Modifier.fillMaxWidth(),
+            backgroundColor = CardBackground.copy(alpha = 0.6f)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                HabfitTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "Name",
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PrimaryNeonGreen) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                HabfitTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = "Email",
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = PrimaryNeonGreen) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                HabfitTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = "Password",
+                    isPassword = true,
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = PrimaryNeonGreen) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                HabfitTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = "Confirm Password",
+                    isPassword = true,
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = PrimaryNeonGreen) }
+                )
+                Spacer(modifier = Modifier.height(32.dp))
 
-        HabfitButton(
-            text = "CREATE ACCOUNT",
-            onClick = {
-                viewModel.signup(name, email, password, confirmPassword, onSignupSuccess)
+                HabfitButton(
+                    text = "CREATE ACCOUNT",
+                    onClick = {
+                        viewModel.signup(name, email, password, confirmPassword, onSignupSuccess)
+                    }
+                )
             }
-        )
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         Row {

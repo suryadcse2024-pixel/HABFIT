@@ -22,7 +22,7 @@ class GroqRepository @Inject constructor(
 ) {
 
     private val apiKey = BuildConfig.GROQ_API_KEY
-    private val model = "llama3-8b-8192"
+    private val model = "llama-3.3-70b-versatile"
 
     fun getChatResponse(prompt: String): Flow<String> = flow {
         if (apiKey.isEmpty()) {

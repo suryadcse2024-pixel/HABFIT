@@ -1,9 +1,12 @@
 package com.habfit.app.data.repository
 
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import com.habfit.app.domain.model.ContentPost
 import com.habfit.app.domain.model.Habit
+import com.habfit.app.domain.model.OnboardingData
 import com.habfit.app.domain.model.Workout
 import com.habfit.app.domain.repository.FirestoreRepository
 import kotlinx.coroutines.channels.awaitClose
@@ -94,5 +97,38 @@ class FirestoreRepositoryImpl @Inject constructor(
             val newLikes = if (isLiked) currentLikes + 1 else (currentLikes - 1).coerceAtLeast(0)
             transaction.update(docRef, "likesCount", newLikes)
         }.await()
+    }
+
+    override suspend fun updateUserProfile(userId: String, name: String, goal: String) {
+        val updates = mapOf(
+            "name" to name,
+            "mainGoal" to goal,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        firestore.collection("users").document(userId).set(updates, SetOptions.merge()).await()
+    }
+
+    override suspend fun isOnboardingCompleted(userId: String): Boolean {
+        return try {
+            val doc = firestore.collection("users").document(userId).get().await()
+            doc.getBoolean("onboardingCompleted") ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun saveOnboardingData(userId: String, data: OnboardingData) {
+        val onboardingMap = mapOf(
+            "experienceLevel" to data.experienceLevel,
+            "goals" to data.goals,
+            "preferences" to mapOf(
+                "activities" to data.preferredActivities,
+                "availableTime" to data.availableTime,
+                "reminderTime" to data.reminderPreference
+            ),
+            "onboardingCompleted" to true,
+            "onboardingCompletedAt" to FieldValue.serverTimestamp()
+        )
+        firestore.collection("users").document(userId).set(onboardingMap, SetOptions.merge()).await()
     }
 }

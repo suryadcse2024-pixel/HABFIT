@@ -56,4 +56,16 @@ class HomeViewModel @Inject constructor(
             repository.toggleHabitCompletion(habit)
         }
     }
+
+    fun addHabit(name: String, category: String, target: String, frequency: String, reminder: String) {
+        viewModelScope.launch {
+            repository.addHabit(name, category, target, frequency, reminder)
+        }
+    }
+
+    fun logWorkout(title: String, type: String, duration: Int, calories: Int, dist: Float, intensity: String, notes: String) {
+        viewModelScope.launch {
+            repository.logWorkout(title, type, duration, calories, dist, intensity, notes)
+        }
+    }
 }

@@ -2,6 +2,8 @@ package com.habfit.app.features.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
+import com.habfit.app.domain.model.OnboardingData
 import com.habfit.app.domain.repository.HabfitRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,23 +17,35 @@ class OnboardingViewModel @Inject constructor(
     private val repository: HabfitRepository
 ) : ViewModel() {
 
-    private val _selectedGoal = MutableStateFlow("Build Consistency & Fitness")
-    val selectedGoal: StateFlow<String> = _selectedGoal.asStateFlow()
+    private val _selectedGoals = MutableStateFlow<Set<String>>(emptySet())
+    val selectedGoals: StateFlow<Set<String>> = _selectedGoals.asStateFlow()
 
-    private val _selectedLevel = MutableStateFlow("Intermediate")
-    val selectedLevel: StateFlow<String> = _selectedLevel.asStateFlow()
+    private val _selectedLevel = MutableStateFlow<String?>(null)
+    val selectedLevel: StateFlow<String?> = _selectedLevel.asStateFlow()
 
-    private val _selectedActivities = MutableStateFlow(setOf("Strength / Gym", "Running / Walking"))
+    private val _selectedActivities = MutableStateFlow<Set<String>>(emptySet())
     val selectedActivities: StateFlow<Set<String>> = _selectedActivities.asStateFlow()
 
-    private val _selectedTime = MutableStateFlow(30)
-    val selectedTime: StateFlow<Int> = _selectedTime.asStateFlow()
+    private val _selectedTime = MutableStateFlow<String?>(null)
+    val selectedTime: StateFlow<String?> = _selectedTime.asStateFlow()
 
-    private val _selectedHabits = MutableStateFlow(setOf("Drink 2.5L Water", "Morning Stretch & Mobility", "Hit 8,000 Daily Steps"))
-    val selectedHabits: StateFlow<Set<String>> = _selectedHabits.asStateFlow()
+    private val _selectedReminder = MutableStateFlow<String?>(null)
+    val selectedReminder: StateFlow<String?> = _selectedReminder.asStateFlow()
 
-    fun setGoal(goal: String) {
-        _selectedGoal.value = goal
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    fun toggleGoal(goal: String) {
+        val current = _selectedGoals.value.toMutableSet()
+        if (current.contains(goal)) {
+            current.remove(goal)
+        } else {
+            current.add(goal)
+        }
+        _selectedGoals.value = current
     }
 
     fun setLevel(level: String) {
@@ -41,38 +55,69 @@ class OnboardingViewModel @Inject constructor(
     fun toggleActivity(activity: String) {
         val current = _selectedActivities.value.toMutableSet()
         if (current.contains(activity)) {
-            if (current.size > 1) current.remove(activity)
+            current.remove(activity)
         } else {
             current.add(activity)
         }
         _selectedActivities.value = current
     }
 
-    fun setTime(minutes: Int) {
-        _selectedTime.value = minutes
+    fun setTime(time: String) {
+        _selectedTime.value = time
     }
 
-    fun toggleHabit(habit: String) {
-        val current = _selectedHabits.value.toMutableSet()
-        if (current.contains(habit)) {
-            if (current.size > 1) current.remove(habit)
-        } else {
-            current.add(habit)
-        }
-        _selectedHabits.value = current
+    fun setReminder(reminder: String) {
+        _selectedReminder.value = reminder
     }
 
     fun completeOnboarding(onSuccess: () -> Unit) {
+        val goals = _selectedGoals.value.toList()
+        val level = _selectedLevel.value ?: run {
+            Log.e("OnboardingViewModel", "Missing level")
+            return
+        }
+        val activities = _selectedActivities.value.toList()
+        val time = _selectedTime.value ?: run {
+            Log.e("OnboardingViewModel", "Missing time")
+            return
+        }
+        val reminder = _selectedReminder.value ?: run {
+            Log.e("OnboardingViewModel", "Missing reminder")
+            return
+        }
+
+        if (goals.isEmpty()) {
+            _errorMessage.value = "Please select at least one goal"
+            Log.e("OnboardingViewModel", "Goals are empty")
+            return
+        }
+        if (activities.isEmpty()) {
+            _errorMessage.value = "Please select at least one activity"
+            Log.e("OnboardingViewModel", "Activities are empty")
+            return
+        }
+
         viewModelScope.launch {
-            repository.saveUserPreferences(
-                name = "Alex Vance",
-                goal = _selectedGoal.value,
-                level = _selectedLevel.value,
-                activities = _selectedActivities.value.joinToString(","),
-                time = _selectedTime.value,
-                starterHabits = _selectedHabits.value.toList()
-            )
-            onSuccess()
+            _isLoading.value = true
+            _errorMessage.value = null
+            try {
+                repository.completeOnboarding(
+                    OnboardingData(
+                        goals = goals,
+                        experienceLevel = level,
+                        preferredActivities = activities,
+                        availableTime = time,
+                        reminderPreference = reminder
+                    )
+                )
+                Log.d("OnboardingViewModel", "Onboarding completed successfully")
+                onSuccess()
+            } catch (e: Exception) {
+                Log.e("OnboardingViewModel", "Onboarding completion failed", e)
+                _errorMessage.value = "Failed to save preferences. Please try again."
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 }

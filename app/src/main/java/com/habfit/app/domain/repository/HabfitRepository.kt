@@ -25,6 +25,8 @@ interface HabfitRepository {
     )
     suspend fun updateNotifications(enabled: Boolean)
     suspend fun logout()
+    suspend fun completeOnboarding(data: com.habfit.app.domain.model.OnboardingData)
+    suspend fun checkOnboardingStatus(): Boolean
 
     // Habits
     fun getAllHabits(): Flow<List<Habit>>
@@ -38,10 +40,12 @@ interface HabfitRepository {
     suspend fun toggleHabitCompletion(habit: Habit)
     suspend fun deleteHabit(id: Int)
     suspend fun updateHabit(habit: Habit)
+    fun getCompletionStatsForDate(date: String): Flow<Pair<Int, Int>>
 
     // Fitness & Workouts
     fun getAllGoals(): Flow<List<FitnessGoal>>
     suspend fun addFitnessGoal(title: String, type: String, targetValue: Float, unit: String)
+    suspend fun updateGoalProgress(type: String, increment: Float)
     suspend fun deleteFitnessGoal(id: Int)
     fun getAllWorkouts(): Flow<List<Workout>>
     fun getRecentWorkouts(limit: Int = 10): Flow<List<Workout>>

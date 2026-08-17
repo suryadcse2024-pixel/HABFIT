@@ -1,5 +1,7 @@
 package com.habfit.app.features.auth
 
+import android.util.Log
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -19,6 +21,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import com.habfit.app.BuildConfig
+import com.habfit.app.ui.components.HabfitCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -52,12 +58,12 @@ import com.habfit.app.ui.theme.SecondaryText
 @Composable
 fun LoginScreen(
     onNavigateToSignup: () -> Unit,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (String) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var email by remember { mutableStateOf("alex@habfit.app") }
-    var password by remember { mutableStateOf("habfit123") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     val error by viewModel.errorMessage.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
@@ -68,11 +74,23 @@ fun LoginScreen(
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)
-            account?.idToken?.let { idToken ->
+            val idToken = account?.idToken
+            if (idToken != null) {
                 viewModel.signInWithGoogle(idToken, onLoginSuccess)
+            } else {
+                viewModel.setErrorMessage("Google Sign-In failed: ID Token is null. Check Firebase Console.")
             }
         } catch (e: ApiException) {
-            // Handle error
+            val message = when (e.statusCode) {
+                7 -> "Network Error. Please check your internet connection."
+                10 -> "Developer Error (10). This usually means the SHA-1 fingerprint or Web Client ID is incorrect in Firebase."
+                12500 -> "Sign-in failed. Please update Google Play Services."
+                12501 -> "Sign-in cancelled."
+                else -> "Google Sign-In Error (${e.statusCode}): ${e.localizedMessage}"
+            }
+            if (e.statusCode != 12501) { // Don't show error if user just cancelled
+                viewModel.setErrorMessage(message)
+            }
         }
     }
 
@@ -114,32 +132,46 @@ fun LoginScreen(
             )
         }
 
-        HabfitTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = "Email"
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        HabfitTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = "Password",
-            isPassword = true
-        )
+        HabfitCard(
+            modifier = Modifier.fillMaxWidth(),
+            backgroundColor = CardBackground.copy(alpha = 0.6f)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                HabfitTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = "Email",
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = PrimaryNeonGreen) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                HabfitTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = "Password",
+                    isPassword = true,
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = PrimaryNeonGreen) }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (isLoading) {
+                    CircularProgressIndicator(color = PrimaryNeonGreen)
+                } else {
+                    HabfitButton(
+                        text = "LOGIN",
+                        onClick = {
+                            viewModel.login(email, password, onLoginSuccess)
+                        }
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
 
-        if (isLoading) {
-            CircularProgressIndicator(color = PrimaryNeonGreen)
-        } else {
-            HabfitButton(
-                text = "LOGIN",
-                onClick = {
-                    viewModel.login(email, password, onLoginSuccess)
-                }
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
+        if (!isLoading) {
             // Google Sign-In Button
             Box(
                 modifier = Modifier
@@ -149,12 +181,26 @@ fun LoginScreen(
                     .background(CardBackground)
                     .border(1.dp, SecondaryText.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                     .clickable {
+                        if (BuildConfig.GOOGLE_WEB_CLIENT_ID == "YOUR_GOOGLE_WEB_CLIENT_ID_HERE") {
+                            viewModel.setErrorMessage("Please set GOOGLE_WEB_CLIENT_ID in local.properties")
+                            return@clickable
+                        }
+                        
+                        // Diagnostic Logging
+                        Log.d("HabfitAuth", "Starting Google Sign-In")
+                        Log.d("HabfitAuth", "Package Name: ${context.packageName}")
+                        Log.d("HabfitAuth", "Web Client ID: ${BuildConfig.GOOGLE_WEB_CLIENT_ID}")
+
                         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                            .requestIdToken("YOUR_GOOGLE_WEB_CLIENT_ID_HERE") // Replace with actual ID
+                            .requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
                             .requestEmail()
                             .build()
                         val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                        googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                        
+                        // Clear previous sign-in state to allow account selection every time
+                        googleSignInClient.signOut().addOnCompleteListener {
+                            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                        }
                     },
                 contentAlignment = Alignment.Center
             ) {

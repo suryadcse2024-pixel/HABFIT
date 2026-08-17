@@ -1,0 +1,4 @@
+- [x] Update `FirestoreRepositoryImpl.kt` to use `SetOptions.merge()`
+- [x] Update `OnboardingViewModel.kt` with logging and error state
+- [x] Update `OnboardingScreen.kt` to observe and display errors
+- [x] Verify the fix

@@ -43,3 +43,14 @@ data class WorkoutSet(
     val weightKg: Float = 0f,
     val durationSeconds: Int = 0
 )
+
+data class Gym(
+    val id: String,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val address: String,
+    val distance: String,
+    val openingHours: String,
+    val rating: Float
+)

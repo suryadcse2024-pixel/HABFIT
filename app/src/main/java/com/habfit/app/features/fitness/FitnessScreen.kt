@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -20,21 +19,37 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.SelfImprovement
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.viewinterop.AndroidView
+import com.habfit.app.domain.model.Gym
+import com.habfit.app.ui.components.HabfitGoalProgressBar
+import com.habfit.app.ui.theme.GoldReward
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import androidx.compose.ui.platform.LocalContext
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,31 +59,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapType
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
 import com.habfit.app.domain.model.FitnessGoal
-import com.habfit.app.domain.model.Workout
-import com.habfit.app.ui.components.HabfitButton
+import com.habfit.app.ui.components.AddFitnessGoalDialog
 import com.habfit.app.ui.components.HabfitCard
 import com.habfit.app.ui.components.HabfitSectionTitle
-import com.habfit.app.ui.components.HabfitTextField
+import com.habfit.app.ui.components.LogWorkoutDialog
+import com.habfit.app.ui.components.WorkoutHistoryItem
 import com.habfit.app.ui.theme.Background
 import com.habfit.app.ui.theme.CardBackground
-import com.habfit.app.ui.theme.ErrorColor
-import com.habfit.app.ui.theme.GoldReward
 import com.habfit.app.ui.theme.PrimaryNeonGreen
 import com.habfit.app.ui.theme.PrimaryText
 import com.habfit.app.ui.theme.SecondaryText
@@ -80,9 +84,36 @@ fun FitnessScreen(
     val goals by viewModel.goals.collectAsState()
     val workouts by viewModel.workouts.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
+    val nearbyGyms by viewModel.nearbyGyms.collectAsState()
+    val userLocation by viewModel.userLocation.collectAsState()
 
     var showLogDialog by remember { mutableStateOf(false) }
     var showGoalDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            viewModel.refreshLocation()
+        }
+    }
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 1) {
+            val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
+            if (!hasFine && !hasCoarse) {
+                permissionLauncher.launch(arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ))
+            } else {
+                viewModel.refreshLocation()
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Background,
@@ -102,9 +133,12 @@ fun FitnessScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(bottom = padding.calculateBottomPadding())
         ) {
-            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+            Column(modifier = Modifier
+                .background(Background) // Solid background for header
+                .statusBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp)) {
                 Text(
                     text = "FITNESS TRACKER",
                     fontSize = 28.sp,
@@ -172,7 +206,15 @@ fun FitnessScreen(
                     item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             } else {
-                FitnessMapContent()
+                Box(modifier = Modifier
+                    .weight(1f)
+                    .clipToBounds()
+                ) {
+                    FitnessMapContent(
+                        gyms = nearbyGyms,
+                        userLocation = userLocation
+                    )
+                }
             }
         }
     }
@@ -264,15 +306,7 @@ fun FitnessGoalItem(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = PrimaryNeonGreen,
-                trackColor = Color.White.copy(alpha = 0.1f)
-            )
+            HabfitGoalProgressBar(progress = progress)
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -295,206 +329,115 @@ fun FitnessGoalItem(
 }
 
 @Composable
-fun WorkoutHistoryItem(
-    workout: Workout,
-    onDelete: () -> Unit
+fun FitnessMapContent(
+    gyms: List<Gym>,
+    userLocation: android.location.Location?
 ) {
-    HabfitCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val icon = getWorkoutIcon(workout.type)
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryNeonGreen.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = icon, contentDescription = workout.type, tint = PrimaryNeonGreen)
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = workout.title, color = PrimaryText, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "${workout.durationMinutes} mins  •  ${workout.caloriesBurned} kcal" +
-                            if (workout.distanceKm > 0) "  •  ${workout.distanceKm} km" else "",
-                    color = SecondaryText,
-                    fontSize = 12.sp
-                )
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = SecondaryText.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
-            }
-        }
-    }
-}
-
-fun getWorkoutIcon(type: String): ImageVector {
-    return when (type.lowercase()) {
-        "running" -> Icons.Default.DirectionsRun
-        "cycling" -> Icons.Default.DirectionsBike
-        "walking" -> Icons.Default.DirectionsWalk
-        "yoga" -> Icons.Default.SelfImprovement
-        else -> Icons.Default.FitnessCenter
-    }
-}
-
-@Composable
-fun FitnessMapContent() {
-    val centerPos = LatLng(1.3521, 103.8198)
-    val gymA = LatLng(1.3540, 103.8240)
-    val gymB = LatLng(1.3490, 103.8150)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(centerPos, 13f)
-    }
+    val singapore = GeoPoint(1.3521, 103.8198)
+    val centerPos = if (userLocation != null) GeoPoint(userLocation.latitude, userLocation.longitude) else singapore
 
     Box(modifier = Modifier.fillMaxSize()) {
-        GoogleMap(
+        AndroidView(
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            properties = MapProperties(mapType = MapType.NORMAL),
-            uiSettings = MapUiSettings(zoomControlsEnabled = false)
-        ) {
-            Marker(
-                state = remember { MarkerState(position = gymA) },
-                title = "PowerFit Gym & Studio",
-                snippet = "0.8 km away • Open 24/7"
-            )
-            Marker(
-                state = remember { MarkerState(position = gymB) },
-                title = "Olympic CrossFit Arena",
-                snippet = "1.4 km away • Functional Training"
-            )
+            factory = { ctx ->
+                MapView(ctx).apply {
+                    setTileSource(TileSourceFactory.MAPNIK)
+                    setMultiTouchControls(true)
+                    controller.setZoom(15.0)
+                    controller.setCenter(centerPos)
+                    
+                    // Slightly Less Aggressive Dark Mode Filter
+                    val matrix = ColorMatrix()
+                    matrix.setSaturation(0.1f) // Keep a tiny bit of color for contrast
+                    val inverse = ColorMatrix(floatArrayOf(
+                        -0.7f, 0f, 0f, 0f, 200f,
+                        0f, -0.7f, 0f, 0f, 200f,
+                        0f, 0f, -0.7f, 0f, 200f,
+                        0f, 0f, 0f, 1f, 0f
+                    ))
+                    matrix.postConcat(inverse)
+                    
+                    val filter = ColorMatrixColorFilter(matrix)
+                    overlayManager.tilesOverlay.setColorFilter(filter)
+                }
+            },
+            update = { view ->
+                view.controller.setCenter(centerPos)
+                view.overlays.clear()
+                
+                // User Location Marker
+                userLocation?.let {
+                    val userMarker = Marker(view)
+                    userMarker.position = GeoPoint(it.latitude, it.longitude)
+                    userMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    userMarker.title = "You are here"
+                    userMarker.icon = view.context.getDrawable(org.osmdroid.library.R.drawable.ic_menu_mylocation)
+                    userMarker.icon.setTint(android.graphics.Color.CYAN)
+                    view.overlays.add(userMarker)
+                }
+
+                // Gym Markers
+                gyms.forEach { gym ->
+                    val marker = Marker(view)
+                    marker.position = GeoPoint(gym.latitude, gym.longitude)
+                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    marker.title = gym.name
+                    marker.snippet = "${gym.distance} away • ${gym.openingHours}"
+                    
+                    // Using a solid default pin
+                    val icon = view.context.getDrawable(org.osmdroid.library.R.drawable.marker_default)
+                    icon?.setTint(android.graphics.Color.GREEN)
+                    marker.icon = icon
+                    
+                    view.overlays.add(marker)
+                }
+                view.invalidate()
+            }
+        )
+
+        // Gym Cards at the bottom
+        if (gyms.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = 80.dp), // Increased padding to avoid AI FAB
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(gyms) { gym ->
+                    GymInfoCard(gym = gym)
+                }
+            }
         }
     }
 }
 
 @Composable
-fun LogWorkoutDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (title: String, type: String, duration: Int, calories: Int, dist: Float, intensity: String, notes: String) -> Unit
-) {
-    var title by remember { mutableStateOf("Strength Training Session") }
-    var selectedType by remember { mutableStateOf("Strength") }
-    var durationText by remember { mutableStateOf("35") }
-    var caloriesText by remember { mutableStateOf("280") }
-    var distanceText by remember { mutableStateOf("0") }
-    var notes by remember { mutableStateOf("") }
-
-    val types = listOf("Strength", "Running", "HIIT", "Yoga", "Cycling", "Walking")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = CardBackground,
-        title = { Text("Log Workout", color = PrimaryText, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-        text = {
-            Column {
-                HabfitTextField(value = title, onValueChange = { title = it }, label = "Workout Title")
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Activity Type", color = SecondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    types.take(3).forEach { t ->
-                        val isSel = selectedType == t
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSel) PrimaryNeonGreen else Background)
-                                .clickable { selectedType = t }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(text = t, color = if (isSel) Color.Black else SecondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    types.drop(3).forEach { t ->
-                        val isSel = selectedType == t
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSel) PrimaryNeonGreen else Background)
-                                .clickable { selectedType = t }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(text = t, color = if (isSel) Color.Black else SecondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Row {
-                    Box(modifier = Modifier.weight(1f)) {
-                        HabfitTextField(value = durationText, onValueChange = { durationText = it }, label = "Duration (mins)")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(modifier = Modifier.weight(1f)) {
-                        HabfitTextField(value = caloriesText, onValueChange = { caloriesText = it }, label = "Calories (kcal)")
-                    }
-                }
+fun GymInfoCard(gym: Gym) {
+    HabfitCard(
+        modifier = Modifier.width(260.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = gym.name, color = PrimaryText, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                Text(text = "⭐ ${gym.rating}", color = GoldReward, fontSize = 12.sp)
             }
-        },
-        confirmButton = {
-            HabfitButton(
-                text = "LOG WORKOUT",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                onClick = {
-                    val duration = durationText.toIntOrNull() ?: 30
-                    val calories = caloriesText.toIntOrNull() ?: 250
-                    val dist = distanceText.toFloatOrNull() ?: 0f
-                    onConfirm(title, selectedType, duration, calories, dist, "Medium", notes)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = gym.address, color = SecondaryText, fontSize = 12.sp, maxLines = 1)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(PrimaryNeonGreen.copy(alpha = 0.1f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(text = gym.distance, color = PrimaryNeonGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = SecondaryText) }
-        }
-    )
-}
-
-@Composable
-fun AddFitnessGoalDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (title: String, type: String, target: Float, unit: String) -> Unit
-) {
-    var title by remember { mutableStateOf("Run 20km this week") }
-    var targetText by remember { mutableStateOf("20") }
-    var unit by remember { mutableStateOf("km") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = CardBackground,
-        title = { Text("Add Fitness Goal", color = PrimaryText, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-        text = {
-            Column {
-                HabfitTextField(value = title, onValueChange = { title = it }, label = "Goal Title")
-                Spacer(modifier = Modifier.height(12.dp))
-                Row {
-                    Box(modifier = Modifier.weight(1f)) {
-                        HabfitTextField(value = targetText, onValueChange = { targetText = it }, label = "Target Value")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(modifier = Modifier.weight(1f)) {
-                        HabfitTextField(value = unit, onValueChange = { unit = it }, label = "Unit (km, sessions, kcal)")
-                    }
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = gym.openingHours, color = SecondaryText, fontSize = 11.sp)
             }
-        },
-        confirmButton = {
-            HabfitButton(
-                text = "SET GOAL",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                onClick = {
-                    val target = targetText.toFloatOrNull() ?: 10f
-                    onConfirm(title, "Custom", target, unit)
-                }
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = SecondaryText) }
         }
-    )
+    }
 }

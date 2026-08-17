@@ -27,7 +27,11 @@ class AuthViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    fun login(email: String, password: String, onSuccess: () -> Unit) {
+    fun setErrorMessage(message: String?) {
+        _errorMessage.value = message
+    }
+
+    fun login(email: String, password: String, onSuccess: (String) -> Unit) {
         if (email.isBlank() || password.isBlank()) {
             _errorMessage.value = "Please enter your email and password"
             return
@@ -41,8 +45,11 @@ class AuthViewModel @Inject constructor(
                     analytics.logEvent(FirebaseAnalytics.Event.LOGIN, Bundle().apply {
                         putString(FirebaseAnalytics.Param.METHOD, "email")
                     })
+                    
+                    // Check onboarding status
+                    val isCompleted = habfitRepository.checkOnboardingStatus()
                     _isLoading.value = false
-                    onSuccess()
+                    onSuccess(if (isCompleted) "main" else "onboarding")
                 },
                 onFailure = {
                     _isLoading.value = false
@@ -52,7 +59,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun signup(name: String, email: String, password: String, confirmPassword: String, onSuccess: () -> Unit) {
+    fun signup(name: String, email: String, password: String, confirmPassword: String, onSuccess: (String) -> Unit) {
         if (name.isBlank() || email.isBlank() || password.isBlank()) {
             _errorMessage.value = "Please fill in all fields"
             return
@@ -70,17 +77,10 @@ class AuthViewModel @Inject constructor(
                     analytics.logEvent(FirebaseAnalytics.Event.SIGN_UP, Bundle().apply {
                         putString(FirebaseAnalytics.Param.METHOD, "email")
                     })
-                    // Initialize local preferences with cloud data
-                    habfitRepository.saveUserPreferences(
-                        name = name,
-                        goal = "Build Consistency & Fitness",
-                        level = "Intermediate",
-                        activities = "Strength,Running",
-                        time = 30,
-                        starterHabits = emptyList()
-                    )
+                    
+                    // New users always go to onboarding
                     _isLoading.value = false
-                    onSuccess()
+                    onSuccess("onboarding")
                 },
                 onFailure = {
                     _isLoading.value = false
@@ -90,7 +90,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun signInWithGoogle(idToken: String, onSuccess: () -> Unit) {
+    fun signInWithGoogle(idToken: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -100,8 +100,11 @@ class AuthViewModel @Inject constructor(
                     analytics.logEvent(FirebaseAnalytics.Event.LOGIN, Bundle().apply {
                         putString(FirebaseAnalytics.Param.METHOD, "google")
                     })
+                    
+                    // Check onboarding status
+                    val isCompleted = habfitRepository.checkOnboardingStatus()
                     _isLoading.value = false
-                    onSuccess()
+                    onSuccess(if (isCompleted) "main" else "onboarding")
                 },
                 onFailure = {
                     _isLoading.value = false

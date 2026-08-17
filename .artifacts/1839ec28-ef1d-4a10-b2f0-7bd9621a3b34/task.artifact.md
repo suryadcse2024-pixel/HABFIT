@@ -1,0 +1,9 @@
+- `[x]` Update domain models (`User.kt`, new `OnboardingData.kt`)
+- `[x]` Update `FirestoreRepository` interface and implementation
+- `[x]` Update `HabfitRepository` interface and implementation
+- `[x]` Implement `OnboardingViewModel` logic
+- `[x]` Implement `OnboardingScreen` UI (5 steps, Pager, Validation)
+- `[x]` Update `SplashViewModel` for remote onboarding check
+- `[x]` Refine `NavGraph.kt` flow
+- `[x]` Update `HomeScreen.kt` placeholder
+- `[x]` Verification & Build

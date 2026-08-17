@@ -16,6 +16,9 @@ interface FitnessDao {
     @Query("SELECT * FROM fitness_goals ORDER BY id DESC")
     fun getAllGoals(): Flow<List<FitnessGoal>>
 
+    @Query("SELECT * FROM fitness_goals")
+    suspend fun getAllGoalsSync(): List<FitnessGoal>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGoal(goal: FitnessGoal): Long
 

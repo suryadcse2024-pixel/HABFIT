@@ -31,6 +31,9 @@ android {
         }
         val groqApiKey = properties.getProperty("GROQ_API_KEY") ?: ""
         buildConfigField("String", "GROQ_API_KEY", "\"$groqApiKey\"")
+        
+        val googleWebClientId = properties.getProperty("GOOGLE_WEB_CLIENT_ID") ?: "YOUR_GOOGLE_WEB_CLIENT_ID_HERE"
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -48,6 +51,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -60,6 +70,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.preference)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -93,8 +104,8 @@ dependencies {
     implementation(libs.okhttp.logging)
 
     // Maps
-    implementation(libs.maps.compose)
-    implementation(libs.play.services.maps)
+    implementation(libs.osmdroid.android)
+    implementation(libs.play.services.location)
     implementation(libs.play.services.auth)
 
     // Coil
@@ -104,6 +115,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -68,7 +68,13 @@ fun MainScreen(
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
+            composable(Screen.Home.route) { 
+                HomeScreen(
+                    onNavigateToHabits = { navController.navigate(Screen.Habits.route) },
+                    onNavigateToFitness = { navController.navigate(Screen.Fitness.route) },
+                    onNavigateToAI = { navController.navigate(Screen.AI.route) }
+                ) 
+            }
             composable(Screen.Habits.route) { HabitScreen() }
             composable(Screen.AI.route) { AIScreen() }
             composable(Screen.Fitness.route) { FitnessScreen() }

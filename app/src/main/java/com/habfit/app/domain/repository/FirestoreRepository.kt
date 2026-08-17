@@ -16,4 +16,9 @@ interface FirestoreRepository {
     fun getCommunityPosts(): Flow<List<ContentPost>>
     suspend fun createCommunityPost(post: ContentPost)
     suspend fun toggleLikePost(postId: Int, userId: String, isLiked: Boolean)
+    suspend fun updateUserProfile(userId: String, name: String, goal: String)
+
+    // Onboarding
+    suspend fun isOnboardingCompleted(userId: String): Boolean
+    suspend fun saveOnboardingData(userId: String, data: com.habfit.app.domain.model.OnboardingData)
 }

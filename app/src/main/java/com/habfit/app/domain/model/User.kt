@@ -18,5 +18,9 @@ data class User(
     val currentStreak: Int = 5,
     val longestStreak: Int = 12,
     val isNotificationsEnabled: Boolean = true,
+    val onboardingCompleted: Boolean = false,
+    val onboardingCompletedAt: Long? = null,
+    val goals: String = "", // Comma separated goals
+    val reminderPreference: String = "Morning",
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -17,6 +17,7 @@ import com.habfit.app.domain.model.FitnessGoal
 import com.habfit.app.domain.model.Habit
 import com.habfit.app.domain.model.HabitLog
 import com.habfit.app.domain.model.LifeScoreData
+import com.habfit.app.domain.model.OnboardingData
 import com.habfit.app.domain.model.RewardTransaction
 import com.habfit.app.domain.model.User
 import com.habfit.app.domain.model.Workout
@@ -49,9 +50,15 @@ class HabfitRepositoryImpl @Inject constructor(
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
-    override fun getUser(): Flow<User?> = userDao.getUser()
+    override fun getUser(): Flow<User?> {
+        val uid = authRepository.currentUser?.uid ?: "default_user"
+        return userDao.getUser(uid)
+    }
 
-    override suspend fun getUserSync(): User? = userDao.getUserSync()
+    override suspend fun getUserSync(): User? {
+        val uid = authRepository.currentUser?.uid ?: return null
+        return userDao.getUserSync(uid)
+    }
 
     override suspend fun saveUserPreferences(
         name: String,
@@ -61,7 +68,8 @@ class HabfitRepositoryImpl @Inject constructor(
         time: Int,
         starterHabits: List<String>
     ) {
-        val existing = userDao.getUserSync() ?: User()
+        val uid = authRepository.currentUser?.uid ?: "default_user"
+        val existing = userDao.getUserSync(uid) ?: User(id = uid)
         val updated = existing.copy(
             name = if (name.isNotBlank()) name else existing.name,
             mainGoal = goal,
@@ -70,6 +78,11 @@ class HabfitRepositoryImpl @Inject constructor(
             availableTimeMinutes = time
         )
         userDao.insertUser(updated)
+
+        // Sync to Firestore if authenticated
+        authRepository.currentUser?.uid?.let { currentUid ->
+            firestoreRepository.updateUserProfile(currentUid, name, goal)
+        }
 
         // If starter habits were picked in onboarding, insert them
         if (starterHabits.isNotEmpty()) {
@@ -96,7 +109,8 @@ class HabfitRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateNotifications(enabled: Boolean) {
-        val user = userDao.getUserSync() ?: return
+        val uid = authRepository.currentUser?.uid ?: "default_user"
+        val user = userDao.getUserSync(uid) ?: return
         userDao.updateUser(user.copy(isNotificationsEnabled = enabled))
     }
 
@@ -104,6 +118,54 @@ class HabfitRepositoryImpl @Inject constructor(
         authRepository.logout()
         // Log Analytics
         analytics.logEvent("logout", null)
+    }
+
+    override suspend fun completeOnboarding(data: OnboardingData) {
+        val uid = authRepository.currentUser?.uid ?: throw IllegalStateException("User not authenticated")
+        
+        // 1. Update Firestore
+        firestoreRepository.saveOnboardingData(uid, data)
+        
+        // 2. Update Room
+        val existing = userDao.getUserSync(uid) ?: User(id = uid)
+        val updated = existing.copy(
+            experienceLevel = data.experienceLevel,
+            goals = data.goals.joinToString(","),
+            preferredActivities = data.preferredActivities.joinToString(","),
+            availableTimeMinutes = when(data.availableTime) {
+                "10 Minutes" -> 10
+                "20 Minutes" -> 20
+                "30 Minutes" -> 30
+                else -> 45
+            },
+            reminderPreference = data.reminderPreference,
+            onboardingCompleted = true,
+            onboardingCompletedAt = System.currentTimeMillis()
+        )
+        userDao.insertUser(updated)
+        
+        // Log Analytics
+        analytics.logEvent("onboarding_completed", Bundle().apply {
+            putString("experience_level", data.experienceLevel)
+            putString("main_goal", data.goals.firstOrNull())
+        })
+    }
+
+    override suspend fun checkOnboardingStatus(): Boolean {
+        val uid = authRepository.currentUser?.uid ?: return false
+        
+        // Always check Firestore as the source of truth for onboarding status
+        val isCompletedRemote = firestoreRepository.isOnboardingCompleted(uid)
+        
+        // Sync to Room if completed remote but not local
+        if (isCompletedRemote) {
+            val localUser = userDao.getUserSync(uid)
+            if (localUser == null || !localUser.onboardingCompleted) {
+                userDao.insertUser((localUser ?: User(id = uid)).copy(onboardingCompleted = true))
+            }
+        }
+        
+        return isCompletedRemote
     }
 
     override fun getAllHabits(): Flow<List<Habit>> = habitDao.getAllHabits()
@@ -160,7 +222,9 @@ class HabfitRepositoryImpl @Inject constructor(
             })
 
             // Reward points
-            userDao.addPoints(15)
+            authRepository.currentUser?.uid?.let { uid ->
+                userDao.addPoints(15, uid)
+            }
             badgeDao.insertTransaction(
                 RewardTransaction(
                     title = "Completed Habit: ${habit.name}",
@@ -187,6 +251,15 @@ class HabfitRepositoryImpl @Inject constructor(
         habitDao.updateHabit(habit)
     }
 
+    override fun getCompletionStatsForDate(date: String): Flow<Pair<Int, Int>> {
+        return combine(
+            habitDao.getAllHabits(),
+            habitLogDao.getLogsForDate(date)
+        ) { habits, logs ->
+            Pair(logs.size, habits.size)
+        }
+    }
+
     override fun getAllGoals(): Flow<List<FitnessGoal>> = fitnessDao.getAllGoals()
 
     override suspend fun addFitnessGoal(title: String, type: String, targetValue: Float, unit: String) {
@@ -198,6 +271,24 @@ class HabfitRepositoryImpl @Inject constructor(
                 unit = unit
             )
         )
+    }
+
+    override suspend fun updateGoalProgress(type: String, increment: Float) {
+        // This is a simplified implementation. In a real app, you'd fetch active goals for the type.
+        // We'll get all goals and update any that match the type (Running, Steps, Calories, etc.)
+        val allGoals = fitnessDao.getAllGoalsSync()
+        allGoals.forEach { goal ->
+            if (goal.type.equals(type, ignoreCase = true) || 
+                (type.equals("Steps", ignoreCase = true) && goal.unit.equals("steps", ignoreCase = true)) ||
+                (type.equals("Running", ignoreCase = true) && goal.unit.equals("km", ignoreCase = true))
+            ) {
+                val newValue = goal.currentValue + increment
+                fitnessDao.updateGoal(goal.copy(
+                    currentValue = newValue,
+                    isCompleted = newValue >= goal.targetValue
+                ))
+            }
+        }
     }
 
     override suspend fun deleteFitnessGoal(id: Int) {
@@ -228,13 +319,24 @@ class HabfitRepositoryImpl @Inject constructor(
         )
         val id = fitnessDao.insertWorkout(workout)
 
+        // Update goals
+        updateGoalProgress("Workouts", 1f)
+        if (caloriesBurned > 0) updateGoalProgress("Calories", caloriesBurned.toFloat())
+        if (distanceKm > 0) {
+            updateGoalProgress("Running", distanceKm)
+            updateGoalProgress("Walking", distanceKm)
+            updateGoalProgress("Cycling", distanceKm)
+        }
+
         // Sync to Firestore
         authRepository.currentUser?.uid?.let { uid ->
             firestoreRepository.syncWorkout(uid, workout.copy(id = id.toInt()))
         }
 
         // Reward points for workout
-        userDao.addPoints(30)
+        authRepository.currentUser?.uid?.let { uid ->
+            userDao.addPoints(30, uid)
+        }
         badgeDao.insertTransaction(
             RewardTransaction(
                 title = "Logged Workout: $title",
@@ -262,7 +364,9 @@ class HabfitRepositoryImpl @Inject constructor(
         val newStatus = !task.isCompleted
         assistantDao.setTaskCompletion(task.id, newStatus)
         if (newStatus) {
-            userDao.addPoints(task.rewardPoints)
+            authRepository.currentUser?.uid?.let { uid ->
+                userDao.addPoints(task.rewardPoints, uid)
+            }
             badgeDao.insertTransaction(
                 RewardTransaction(
                     title = "Completed Mission: ${task.title}",
@@ -330,7 +434,8 @@ class HabfitRepositoryImpl @Inject constructor(
     override fun getAllBadges(): Flow<List<Badge>> = badgeDao.getAllBadges()
 
     private suspend fun checkBadges() {
-        val user = userDao.getUserSync() ?: return
+        val uid = authRepository.currentUser?.uid ?: "default_user"
+        val user = userDao.getUserSync(uid) ?: return
         if (user.points >= 200) {
             badgeDao.unlockBadge("streak_7")
         }
@@ -357,7 +462,8 @@ class HabfitRepositoryImpl @Inject constructor(
     override fun getAllPosts(): Flow<List<ContentPost>> = communityDao.getAllPosts()
 
     override suspend fun createPost(title: String, body: String, tag: String) {
-        val user = userDao.getUserSync()
+        val uid = authRepository.currentUser?.uid ?: "default_user"
+        val user = userDao.getUserSync(uid)
         val authorName = user?.name ?: "Habfit Member"
         val userId = authRepository.currentUser?.uid ?: "user_me"
         
